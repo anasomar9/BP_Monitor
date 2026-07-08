@@ -394,21 +394,35 @@
       <h3 id="sugarModalTitle">إضافة قراءة سكر</h3>
       <button class="btn-icon closeSugarModal">✕</button>
     </div>
-    <form id="sugarForm">
-      <div class="quick-form cols-2"></div>
-        <div class="field"><label for="sugarValue">القيمة (mg/dL)</label><input type="number" id="sugarValue" required min="10" max="900" step="0.1" /></div>
-        <div class="field">
-          <label for="sugarType">نوع القراءة</label>
-          <select id="sugarType" required>
-            <option value="fasting">صائم</option>
-            <option value="before_meal">قبل الأكل</option>
-            <option value="after_meal">بعد الأكل</option>
-            <option value="random">عشوائي</option>
-          </select>
-        </div>
-        <div class="field"><label for="sugarMeasuredAt">تاريخ ووقت القياس</label><input type="datetime-local" id="sugarMeasuredAt" required /></div>
-        <div class="field"><label for="sugarNote">ملاحظة (اختياري)</label><input type="text" id="sugarNote" placeholder="مثال: بعد الغداء" /></div>
-      </div>
+ <form id="sugarForm">
+  <div class="quick-form cols-2">
+
+    <div class="field">
+      <label for="sugarValue">القيمة (mg/dL)</label>
+      <input type="number" id="sugarValue" required min="10" max="900" step="0.1">
+    </div>
+
+    <div class="field">
+      <label for="sugarType">نوع القراءة</label>
+      <select id="sugarType" required>
+        <option value="fasting">صائم</option>
+        <option value="before_meal">قبل الأكل</option>
+        <option value="after_meal">بعد الأكل</option>
+        <option value="random">عشوائي</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="sugarMeasuredAt">تاريخ ووقت القياس</label>
+      <input type="datetime-local" id="sugarMeasuredAt" required>
+    </div>
+
+    <div class="field">
+      <label for="sugarNote">ملاحظة (اختياري)</label>
+      <input type="text" id="sugarNote" placeholder="مثال: بعد الغداء">
+    </div>
+
+  </div>
       <div class="modal-foot">
         <button type="submit" class="btn btn-primary btn-block">حفظ القراءة</button>
         <button type="button" class="btn btn-ghost closeSugarModal">إلغاء</button>
