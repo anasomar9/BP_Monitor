@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>متابع الضغط والسكر</title>
+<meta name="description" content="تطبيق ويب لمتابعة قراءات ضغط الدم وسكر الدم مع رسوم بيانية وتقارير PDF" />
+<link rel="stylesheet" href="style.css" />
+<!-- مكتبات خارجية عبر CDN -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+</head>
+<body>
+
+<!-- ============== شاشة التحميل ============== -->
+<div class="app-loading" id="appLoading">
+  <svg class="wave-loader" viewBox="0 0 100 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M0 15 Q 8 2 16 15 T 32 15 T 48 15 T 64 15 T 80 15 T 96 15" stroke-width="2.5" stroke-linecap="round"/>
+  </svg>
+  <p style="color:var(--text-faint); font-size:13px;">جارٍ التحميل...</p>
+</div>
+
+<!-- ============== شاشة الدخول / التسجيل ============== -->
+<div class="auth-wrap" id="authScreen" style="display:none;">
+  <div class="auth-hero">
+    <svg class="hero-wave" viewBox="0 0 200 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M0 30 Q 15 5 30 30 T 60 30 T 90 30 T 120 30 T 150 30 T 180 30 T 210 30" stroke-width="3" stroke-linecap="round"/>
+    </svg>
+    <svg class="brand-mark" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M2 22h7l3 10 6-22 4 12h16" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <h1>متابع الضغط والسكر</h1>
+    <p>سجّل قراءاتك اليومية لضغط الدم وسكر الدم، وتابع تطورها عبر رسوم بيانية واضحة، مع تقييم توعوي فوري لكل قراءة.</p>
+    <div class="auth-hero-stats">
+      <div><b>2</b><span>نوعا قياس مدعومان</span></div>
+      <div><b>PDF</b><span>تقرير قابل للتحميل</span></div>
+      <div><b>خاص</b><span>بياناتك لا يراها أحد سواك</span></div>
+    </div>
+  </div>
+
+  <div class="auth-panel">
+    <div style="width:100%; max-width:400px; margin:0 auto; display:flex; flex-direction:column;">
+      <div class="auth-card">
+        <div class="auth-tabs">
+          <button id="tabLoginBtn" class="active">تسجيل الدخول</button>
+          <button id="tabSignupBtn">إنشاء حساب</button>
+        </div>
+
+        <form id="loginForm" class="auth-form active">
+          <div id="loginMsg" class="form-msg"></div>
+          <div class="field">
+            <label for="loginEmail">البريد الإلكتروني</label>
+            <input type="email" id="loginEmail" required autocomplete="email" placeholder="example@email.com" />
+          </div>
+          <div class="field">
+            <label for="loginPassword">كلمة المرور</label>
+            <input type="password" id="loginPassword" required autocomplete="current-password" placeholder="••••••••" />
+          </div>
+          <button type="submit" id="loginSubmitBtn" class="btn btn-primary btn-block">تسجيل الدخول</button>
+          <p class="auth-switch">ليس لديك حساب؟ <button type="button" id="goSignup">أنشئ حسابًا جديدًا</button></p>
+        </form>
+
+        <form id="signupForm" class="auth-form">
+          <div id="signupMsg" class="form-msg"></div>
+          <div class="field">
+            <label for="signupName">الاسم الكامل</label>
+            <input type="text" id="signupName" required autocomplete="name" placeholder="اسمك" />
+          </div>
+          <div class="field">
+            <label for="signupEmail">البريد الإلكتروني</label>
+            <input type="email" id="signupEmail" required autocomplete="email" placeholder="example@email.com" />
+          </div>
+          <div class="field">
+            <label for="signupPassword">كلمة المرور</label>
+            <input type="password" id="signupPassword" required autocomplete="new-password" placeholder="6 أحرف على الأقل" />
+          </div>
+          <button type="submit" id="signupSubmitBtn" class="btn btn-primary btn-block">إنشاء حساب</button>
+          <p class="auth-switch">لديك حساب بالفعل؟ <button type="button" id="goLogin">سجّل الدخول</button></p>
+        </form>
+      </div>
+
+      <footer class="site-footer" style="background:transparent; border:none; margin-top:20px;">
+        <p class="footer-dedication">تم تطوير هذا المشروع صدقة جارية لوجه الله تعالى بواسطة أنس عمر. أسأل الله أن ينفع به كل من يستخدمه، وأن يجعله خالصًا لوجهه الكريم. وإن وجدت فيه فائدة، فلا تنسني من صالح دعائك بظهر الغيب، فذلك هو المقابل الذي أرجوه. <span class="footer-heart">🤍🌿</span></p>
+        <p class="footer-disclaimer">تنبيه: هذا الموقع مخصص للتوعية ومتابعة القراءات الصحية فقط، ولا يُعد تشخيصًا طبيًا أو بديلاً عن استشارة الطبيب أو الحصول على الرعاية الطبية المتخصصة. <span class="footer-heart">🤍🌿</span></p>
+      </footer>
+    </div>
+  </div>
+</div>
+
+<!-- ============== واجهة التطبيق ============== -->
+<div class="app-shell" id="appShell" style="display:none;">
+
+  <!-- الشريط الجانبي -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <svg class="brand-mark" style="width:34px;height:34px;" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M2 22h7l3 10 6-22 4 12h16" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div>
+        <strong>متابع الضغط والسكر</strong>
+        <span>متابعتك الصحية اليومية</span>
+      </div>
+      <button class="btn-icon" id="sidebarCloseBtn" style="margin-inline-start:auto; display:none;"></button>
+    </div>
+
+    <ul class="nav-list">
+      <li><button class="nav-item active" data-view="dashboard"><span id="navIconDashboard"></span>لوحة التحكم</button></li>
+      <li><button class="nav-item" data-view="bp"><span id="navIconBP"></span>قراءات الضغط</button></li>
+      <li><button class="nav-item" data-view="sugar"><span id="navIconSugar"></span>قراءات السكر</button></li>
+      <li><button class="nav-item" data-view="tools"><span id="navIconTools"></span>الأدوات الصحية</button></li>
+      <li><button class="nav-item" data-view="reports"><span id="navIconReports"></span>التقارير</button></li>
+      <li><button class="nav-item" data-view="about"><span id="navIconAbout"></span>عن المشروع</button></li>
+    </ul>
+
+    <div class="sidebar-foot">
+      <div class="sidebar-user">
+        <span class="userNameDisplay">—</span>
+      </div>
+      <div style="display:flex; align-items:center; justify-content:space-between; padding:0 8px;">
+        <span style="font-size:13px; color:var(--text-faint);">الوضع الداكن</span>
+        <button class="theme-toggle" aria-label="تبديل الوضع الداكن"><span class="knob"></span></button>
+      </div>
+      <button class="btn btn-ghost btn-block logoutBtn" style="margin-top:6px;">تسجيل الخروج</button>
+    </div>
+  </aside>
+
+  <!-- طبقة تعتيم لإغلاق الشريط الجانبي على الجوال -->
+  <div id="sidebarOverlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:45;"></div>
+
+  <div class="main-col">
+    <!-- ترويسة الجوال -->
+    <div class="mobile-topbar">
+      <button class="btn-icon" id="mobileMenuBtn"></button>
+      <strong id="mobileTopbarTitle" style="font-family:var(--font-display); font-size:15px;">لوحة التحكم</strong>
+      <button class="theme-toggle" aria-label="تبديل الوضع الداكن"><span class="knob"></span></button>
+    </div>
+
+    <!-- الترويسة العلوية (سطح المكتب) -->
+    <div class="topbar">
+      <h2 id="topbarTitle">لوحة التحكم</h2>
+      <div class="topbar-actions">
+        <span class="userEmailDisplay" style="font-size:13px; color:var(--text-faint);"></span>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- ============== لوحة التحكم ============== -->
+      <section class="view active" id="view-dashboard">
+        <div class="grid grid-4" id="dashboardStatsGrid" style="margin-bottom:22px;"></div>
+
+        <div id="dashboardAdvice"></div>
+
+        <div class="grid grid-2" style="margin-bottom:22px;">
+          <div class="card">
+            <div class="card-title"><h3>إضافة سريعة</h3></div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+              <button class="btn btn-primary" id="addBPBtn2">+ قراءة ضغط جديدة</button>
+              <button class="btn btn-ghost" id="addSugarBtn2">+ قراءة سكر جديدة</button>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title"><h3>آخر القياسات</h3></div>
+            <div id="dashboardRecentList" style="display:flex; flex-direction:column; gap:10px;"></div>
+          </div>
+        </div>
+
+        <div id="dashboardDetailStats"></div>
+      </section>
+
+      <!-- ============== قراءات الضغط ============== -->
+      <section class="view" id="view-bp">
+        <div class="card chart-card" style="margin-bottom:20px;">
+          <div class="card-title"><h3>تطور ضغط الدم</h3></div>
+          <canvas id="bpChart" height="90"></canvas>
+        </div>
+
+        <div class="card">
+          <div class="card-title">
+            <h3>سجل قراءات الضغط</h3>
+            <button class="btn btn-primary btn-sm" id="addBPBtn">+ إضافة قراءة</button>
+          </div>
+          <div class="toolbar">
+            <div class="search-box">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+              <input type="text" id="bpSearch" placeholder="ابحث برقم القراءة أو الملاحظة أو التاريخ..." />
+            </div>
+            <select id="bpStatusFilter">
+              <option value="all">كل الحالات</option>
+              <option value="low">منخفض</option>
+              <option value="normal">طبيعي</option>
+              <option value="high">مرتفع</option>
+              <option value="very_high">مرتفع جدًا</option>
+            </select>
+          </div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>التاريخ والوقت</th><th>الضغط (mmHg)</th><th>النبض</th><th>الحالة</th><th>ملاحظة</th><th>إجراءات</th>
+                </tr>
+              </thead>
+              <tbody id="bpTableBody"></tbody>
+            </table>
+          </div>
+          <div class="empty-state" id="bpEmptyState" style="display:none;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 8v13H3V8"/><path d="M1 3h22v5H1z"/><path d="M10 12h4"/></svg>
+            <p>لا توجد قراءات ضغط بعد. ابدأ بإضافة أول قراءة لك.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============== قراءات السكر ============== -->
+      <section class="view" id="view-sugar">
+        <div class="card chart-card" style="margin-bottom:20px;">
+          <div class="card-title"><h3>تطور سكر الدم</h3></div>
+          <canvas id="sugarChart" height="90"></canvas>
+        </div>
+
+        <div class="card">
+          <div class="card-title">
+            <h3>سجل قراءات السكر</h3>
+            <button class="btn btn-primary btn-sm" id="addSugarBtn">+ إضافة قراءة</button>
+          </div>
+          <div class="toolbar">
+            <div class="search-box">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+              <input type="text" id="sugarSearch" placeholder="ابحث بالقيمة أو الملاحظة أو التاريخ..." />
+            </div>
+            <select id="sugarTypeFilter">
+              <option value="all">كل الأنواع</option>
+              <option value="fasting">صائم</option>
+              <option value="before_meal">قبل الأكل</option>
+              <option value="after_meal">بعد الأكل</option>
+              <option value="random">عشوائي</option>
+            </select>
+            <select id="sugarStatusFilter">
+              <option value="all">كل الحالات</option>
+              <option value="low">منخفض</option>
+              <option value="normal">طبيعي</option>
+              <option value="high">مرتفع</option>
+              <option value="very_high">مرتفع جدًا</option>
+            </select>
+          </div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>التاريخ والوقت</th><th>القيمة</th><th>النوع</th><th>الحالة</th><th>ملاحظة</th><th>إجراءات</th>
+                </tr>
+              </thead>
+              <tbody id="sugarTableBody"></tbody>
+            </table>
+          </div>
+          <div class="empty-state" id="sugarEmptyState" style="display:none;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 8v13H3V8"/><path d="M1 3h22v5H1z"/><path d="M10 12h4"/></svg>
+            <p>لا توجد قراءات سكر بعد. ابدأ بإضافة أول قراءة لك.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============== الأدوات الصحية ============== -->
+      <section class="view" id="view-tools">
+        <div class="grid grid-2" style="margin-bottom:20px;">
+          <div class="card tool-card">
+            <h4>حاسبة مؤشر كتلة الجسم (BMI)</h4>
+            <p style="font-size:13px;">اعرف تصنيف وزنك بالنسبة لطولك.</p>
+            <form id="bmiForm" style="display:flex; flex-direction:column; gap:12px; margin-top:10px;">
+              <div class="field"><label for="bmiWeight">الوزن (كجم)</label><input type="number" id="bmiWeight" min="1" step="0.1" required /></div>
+              <div class="field"><label for="bmiHeight">الطول (سم)</label><input type="number" id="bmiHeight" min="1" step="0.1" required /></div>
+              <button type="submit" class="btn btn-primary">احسب المؤشر</button>
+            </form>
+            <div class="tool-result" id="bmiResult"></div>
+          </div>
+
+          <div class="card tool-card">
+            <h4>حاسبة احتياج الماء اليومي</h4>
+            <p style="font-size:13px;">قدّر كمية الماء التي يحتاجها جسمك يوميًا.</p>
+            <form id="waterForm" style="display:flex; flex-direction:column; gap:12px; margin-top:10px;">
+              <div class="field"><label for="waterWeight">الوزن (كجم)</label><input type="number" id="waterWeight" min="1" step="0.1" required /></div>
+              <div class="field">
+                <label for="waterActivity">مستوى النشاط اليومي</label>
+                <select id="waterActivity">
+                  <option value="low">قليل (عمل مكتبي)</option>
+                  <option value="moderate">متوسط (نشاط منتظم)</option>
+                  <option value="high">عالٍ (تمارين مكثفة)</option>
+                </select>
+              </div>
+              <button type="submit" class="btn btn-primary">احسب الاحتياج</button>
+            </form>
+            <div class="tool-result" id="waterResult"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title"><h3>نصائح صحية لمرضى الضغط والسكري</h3></div>
+          <div class="tips-grid" id="tipsGrid"></div>
+        </div>
+      </section>
+
+      <!-- ============== التقارير ============== -->
+      <section class="view" id="view-reports">
+        <div class="grid grid-2" style="margin-bottom:20px;">
+          <div class="card chart-card">
+            <div class="card-title"><h3>توزيع حالات القراءات</h3></div>
+            <canvas id="statusChart" height="220"></canvas>
+          </div>
+          <div class="card" style="display:flex; flex-direction:column; justify-content:center; align-items:flex-start; gap:14px;">
+            <h4 style="margin:0;">تنزيل تقرير PDF شامل</h4>
+            <p style="margin:0;">يتضمن التقرير جميع قراءاتك، الإحصائيات، والرسوم البيانية في ملف واحد أنيق يمكنك مشاركته مع طبيبك.</p>
+            <button class="btn btn-primary" id="generateReportBtn">تنزيل التقرير الآن (PDF)</button>
+            <p style="font-size:12px; color:var(--text-faint); margin:0;">ملاحظة: التقرير للتوعية والمتابعة فقط، وليس تشخيصًا طبيًا.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============== عن المشروع ============== -->
+      <section class="view" id="view-about">
+        <div class="card">
+          <div class="about-hero">
+            <svg class="brand-mark" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M2 22h7l3 10 6-22 4 12h16" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <h2>عن مشروع متابع الضغط والسكر</h2>
+          </div>
+          <svg class="wave-divider" viewBox="0 0 400 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M0 15 Q 15 2 30 15 T 60 15 T 90 15 T 120 15 T 150 15 T 180 15 T 210 15 T 240 15 T 270 15 T 300 15 T 330 15 T 360 15 T 390 15" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <p>
+            "متابع الضغط والسكر" هو تطبيق ويب بسيط ومجاني يهدف لمساعدة الأشخاص على متابعة قراءات ضغط الدم وسكر الدم
+            بشكل يومي منظم، مع عرض واضح لتطور القراءات عبر الزمن، وتقييم توعوي فوري يساعد المستخدم على فهم حالته العامة.
+          </p>
+          <p>
+            جميع بياناتك مخزّنة بأمان في حسابك الخاص، ولا يمكن لأي مستخدم آخر الاطلاع عليها بفضل سياسات الحماية
+            المطبقة على مستوى قاعدة البيانات (Row Level Security).
+          </p>
+          <div class="advice-banner status-high" style="margin-top:10px;">
+            <span id="aboutInfoIcon"></span>
+            <div>هذا الموقع أداة مساعدة للتوعية والمتابعة الذاتية فقط، ولا يُغني بأي شكل عن استشارة الطبيب المختص أو الفحوصات الطبية اللازمة.</div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- الفوتر يظهر أسفل كل صفحات التطبيق -->
+    <footer class="site-footer">
+      <p class="footer-dedication">تم تطوير هذا المشروع صدقة جارية لوجه الله تعالى بواسطة أنس عمر. أسأل الله أن ينفع به كل من يستخدمه، وأن يجعله خالصًا لوجهه الكريم. وإن وجدت فيه فائدة، فلا تنسني من صالح دعائك بظهر الغيب، فذلك هو المقابل الذي أرجوه. <span class="footer-heart">🤍🌿</span></p>
+      <p class="footer-disclaimer">تنبيه: هذا الموقع مخصص للتوعية ومتابعة القراءات الصحية فقط، ولا يُعد تشخيصًا طبيًا أو بديلاً عن استشارة الطبيب أو الحصول على الرعاية الطبية المتخصصة. <span class="footer-heart">🤍🌿</span></p>
+    </footer>
+
+    <!-- شريط التنقل السفلي للجوال -->
+    <nav class="mobile-nav">
+      <ul class="nav-list">
+        <li><button class="nav-item active" data-view="dashboard"><span id="mnavIconDashboard"></span>الرئيسية</button></li>
+        <li><button class="nav-item" data-view="bp"><span id="mnavIconBP"></span>الضغط</button></li>
+        <li><button class="nav-item" data-view="sugar"><span id="mnavIconSugar"></span>السكر</button></li>
+        <li><button class="nav-item" data-view="tools"><span id="mnavIconTools"></span>أدوات</button></li>
+        <li><button class="nav-item" data-view="about"><span id="mnavIconAbout"></span>عن المشروع</button></li>
+      </ul>
+    </nav>
+  </div>
+</div>
+
+<!-- ============== نافذة إضافة/تعديل قراءة ضغط ============== -->
+<div class="modal-overlay" id="bpModalOverlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="bpModalTitle">إضافة قراءة ضغط</h3>
+      <button class="btn-icon closeBPModal">✕</button>
+    </div>
+    <form id="bpForm">
+      <div class="quick-form">
+        <div class="field"><label for="bpSystolic">الانقباضي (Systolic)</label><input type="number" id="bpSystolic" required min="40" max="300" /></div>
+        <div class="field"><label for="bpDiastolic">الانبساطي (Diastolic)</label><input type="number" id="bpDiastolic" required min="20" max="200" /></div>
+        <div class="field"><label for="bpPulse">النبض (اختياري)</label><input type="number" id="bpPulse" min="20" max="250" /></div>
+        <div class="field"><label for="bpMeasuredAt">تاريخ ووقت القياس</label><input type="datetime-local" id="bpMeasuredAt" required /></div>
+        <div class="field full"><label for="bpNote">ملاحظة (اختياري)</label><input type="text" id="bpNote" placeholder="مثال: بعد الرياضة" /></div>
+      </div>
+      <div class="modal-foot">
+        <button type="submit" class="btn btn-primary btn-block">حفظ القراءة</button>
+        <button type="button" class="btn btn-ghost closeBPModal">إلغاء</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ============== نافذة إضافة/تعديل قراءة سكر ============== -->
+<div class="modal-overlay" id="sugarModalOverlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="sugarModalTitle">إضافة قراءة سكر</h3>
+      <button class="btn-icon closeSugarModal">✕</button>
+    </div>
+    <form id="sugarForm">
+      <div class="quick-form cols-2"></div>
+        <div class="field"><label for="sugarValue">القيمة (mg/dL)</label><input type="number" id="sugarValue" required min="10" max="900" step="0.1" /></div>
+        <div class="field">
+          <label for="sugarType">نوع القراءة</label>
+          <select id="sugarType" required>
+            <option value="fasting">صائم</option>
+            <option value="before_meal">قبل الأكل</option>
+            <option value="after_meal">بعد الأكل</option>
+            <option value="random">عشوائي</option>
+          </select>
+        </div>
+        <div class="field"><label for="sugarMeasuredAt">تاريخ ووقت القياس</label><input type="datetime-local" id="sugarMeasuredAt" required /></div>
+        <div class="field"><label for="sugarNote">ملاحظة (اختياري)</label><input type="text" id="sugarNote" placeholder="مثال: بعد الغداء" /></div>
+      </div>
+      <div class="modal-foot">
+        <button type="submit" class="btn btn-primary btn-block">حفظ القراءة</button>
+        <button type="button" class="btn btn-ghost closeSugarModal">إلغاء</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ============== نافذة تأكيد عامة ============== -->
+<div class="modal-overlay" id="confirmOverlay">
+  <div class="modal" style="max-width:380px;">
+    <div class="modal-head"><h3 id="confirmTitle">تأكيد</h3></div>
+    <p id="confirmMessage" style="margin:0;"></p>
+    <div class="modal-foot">
+      <button class="btn btn-danger-outline" id="confirmActionBtn">تأكيد</button>
+      <button class="btn btn-ghost" id="confirmCancelBtn">إلغاء</button>
+    </div>
+  </div>
+</div>
+
+<!-- إشعارات التوست -->
+<div class="toast-wrap" id="toastWrap"></div>
+
+<!-- ============== ملفات الجافاسكريبت ============== -->
+<script src="icons.js"></script>
+<script src="config.js"></script>
+<script src="utils.js"></script>
+<script src="auth.js"></script>
+<script src="readings.js"></script>
+<script src="stats.js"></script>
+<script src="charts.js"></script>
+<script src="tools.js"></script>
+<script src="pdf.js"></script>
+<script src="main.js"></script>
+
+<script>
+  // حقن أيقونات الشريط الجانبي بعد تحميل icons.js
+  document.getElementById("navIconDashboard").outerHTML = ICON_CHART;
+  document.getElementById("navIconBP").outerHTML = ICON_HEART_PULSE;
+  document.getElementById("navIconSugar").outerHTML = ICON_DROP;
+  document.getElementById("navIconTools").outerHTML = ICON_TOOLS;
+  document.getElementById("navIconReports").outerHTML = ICON_FILE;
+  document.getElementById("navIconAbout").outerHTML = ICON_INFO;
+  document.getElementById("mobileMenuBtn").innerHTML = ICON_MENU;
+  document.getElementById("sidebarCloseBtn").innerHTML = ICON_CLOSE;
+  document.getElementById("mnavIconDashboard").outerHTML = ICON_CHART;
+  document.getElementById("mnavIconBP").outerHTML = ICON_HEART_PULSE;
+  document.getElementById("mnavIconSugar").outerHTML = ICON_DROP;
+  document.getElementById("mnavIconTools").outerHTML = ICON_TOOLS;
+  document.getElementById("mnavIconAbout").outerHTML = ICON_INFO;
+  document.getElementById("aboutInfoIcon").outerHTML = ICON_INFO;
+  document.querySelectorAll(".theme-toggle .knob").forEach(k => k.innerHTML = ICON_SUN);
+  function syncThemeIcon(){
+    const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+    document.querySelectorAll(".theme-toggle .knob").forEach(k => k.innerHTML = isDark ? ICON_MOON : ICON_SUN);
+  }
+  const themeObserver = new MutationObserver(syncThemeIcon);
+  themeObserver.observe(document.documentElement, { attributes:true, attributeFilter:["data-theme"] });
+  syncThemeIcon();
+</script>
+</body>
+</html>
